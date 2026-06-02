@@ -59,12 +59,12 @@
   .acard li::before { content:""; display:inline-block; width:8px; height:8px; background:var(--theme); border-radius:2px; transform:rotate(45deg); margin-right:9px; transition:background .7s ease; }
   .pin { background:var(--theme); transition:background .7s ease; }
 
-  .sun { position:absolute; top:-70px; right:-50px; width:240px; height:240px; border-radius:50%;
-    background:radial-gradient(circle,rgba(249,192,49,.45),rgba(249,192,49,0) 62%); opacity:0; transition:opacity .7s; animation:pulse 6s ease-in-out infinite; }
-  @keyframes pulse { 0%,100%{transform:scale(1);} 50%{transform:scale(1.08);} }
+  .sun { position:absolute; left:80%; top:14%; width:220px; height:220px; border-radius:50%;
+    background:radial-gradient(circle,rgba(249,192,49,.5),rgba(249,192,49,0) 62%); opacity:0; pointer-events:none;
+    transform:translate(-50%,-50%); transition:opacity .8s ease, left 1.6s ease, top 1.6s ease; }
   .snow span { position:absolute; top:-12px; color:#e9f2fb; opacity:0; animation:fall linear infinite; }
   @keyframes fall { 0%{transform:translateY(-10px);opacity:0;} 10%{opacity:.85;} 100%{transform:translateY(420px) translateX(22px);opacity:0;} }
-  @media (prefers-reduced-motion: reduce){ .sun{animation:none;} .snow span{display:none;} }
+  @media (prefers-reduced-motion: reduce){ .sun{transition:opacity .8s ease;} .snow span{display:none;} }
 </style>
 </head>
 <body class="bg-gray-50 text-gray-800 font-sans">
@@ -367,12 +367,37 @@ function animateNum(el,to){
     if(p<1) requestAnimationFrame(step); }
   requestAnimationFrame(step);
 }
+function sunPos(lat, lon, when){
+  var rad=Math.PI/180;
+  var jd=(when.getTime()/86400000)+2440587.5, n=jd-2451545.0;
+  var L=(280.460+0.9856474*n)%360; if(L<0)L+=360;
+  var g=((357.528+0.9856003*n)%360)*rad;
+  var lambda=(L+1.915*Math.sin(g)+0.020*Math.sin(2*g))*rad;
+  var eps=(23.439-0.0000004*n)*rad;
+  var delta=Math.asin(Math.sin(eps)*Math.sin(lambda));
+  var alpha=Math.atan2(Math.cos(eps)*Math.sin(lambda),Math.cos(lambda));
+  var GMST=(280.46061837+360.98564736629*n)%360; if(GMST<0)GMST+=360;
+  var H=((GMST+lon)%360)*rad-alpha;
+  while(H<-Math.PI)H+=2*Math.PI; while(H>Math.PI)H-=2*Math.PI;
+  var latR=lat*rad;
+  var elev=Math.asin(Math.sin(latR)*Math.sin(delta)+Math.cos(latR)*Math.cos(delta)*Math.cos(H));
+  return { elevation:elev/rad, H:H/rad };  // H<0 morning (east), H>0 afternoon (west)
+}
+function positionSun(){
+  var sun=document.getElementById("sun"), c=state.coords||DENTON;
+  var p=sunPos(c.lat,c.lon,new Date());
+  if (p.elevation<=0){ sun.style.opacity="0"; return; }    // sun below horizon: night
+  var leftPct=Math.max(8,Math.min(92, 50+(p.H/120)*42));   // east on the left, west on the right
+  var topPct=Math.max(6,Math.min(82, 80-(p.elevation/75)*72)); // higher sun, higher on the panel
+  var op=Math.min(p.elevation/12,1)*0.5;                    // fade in near the horizon
+  sun.style.left=leftPct+"%"; sun.style.top=topPct+"%"; sun.style.opacity=String(op);
+}
 function applyTheme(band, mode){
   document.body.style.setProperty("--theme", band.theme);
   document.body.style.setProperty("--glow", band.glow);
-  document.getElementById("sun").style.opacity = (mode==="heat") ? "1" : "0";
   var snow=document.getElementById("snow");
-  if (mode==="cold"){ snow.style.display="block"; buildSnow(); } else { snow.style.display="none"; }
+  if (mode==="cold"){ document.getElementById("sun").style.opacity="0"; snow.style.display="block"; buildSnow(); }
+  else { snow.style.display="none"; positionSun(); }
 }
 function buildSnow(){
   var s=document.getElementById("snow"); if (s.childElementCount) return;
