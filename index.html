@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Temp Check | Denton Fire Department</title>
+
+<link rel="icon" type="image/png" href="https://files.constantcontact.com/3720c3fd901/10017eb4-f7d2-424d-92ed-c1b5424b9869.png">
+<link rel="apple-touch-icon" href="https://files.constantcontact.com/3720c3fd901/10017eb4-f7d2-424d-92ed-c1b5424b9869.png">
+<meta name="apple-mobile-web-app-title" content="Temp Check">
+<meta name="application-name" content="Temp Check">
+
+<meta property="og:title" content="Temp Check: Denton Conditions and What to Do">
+<meta property="og:description" content="Live Denton temperature, humidity, heat index, and wind chill with the exact safety actions to take right now. A year-round tool from the Denton Fire Department.">
+<meta property="og:image" content="https://files.constantcontact.com/3720c3fd901/10017eb4-f7d2-424d-92ed-c1b5424b9869.png">
+<meta property="og:url" content="https://dentonfire.github.io/Temp-Check/">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Denton Fire Temp Check">
+<meta name="twitter:description" content="Live Denton conditions and the safety actions to take right now.">
+<meta name="twitter:image" content="https://files.constantcontact.com/3720c3fd901/10017eb4-f7d2-424d-92ed-c1b5424b9869.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: { extend: {
+      colors: { navy:'#152a40', red:'#bf2726', yellow:'#f9c031', green:'#1f9d57' },
+      fontFamily: { sans:['Inter','sans-serif'] }
+    }}
+  }
+</script>
+<style>
+  html { scroll-behavior:smooth; }
+  body { --theme:#152a40; --glow:rgba(21,42,64,.35); }
+  .hero-bg { background-color:#152a40; background-image:url('https://www.transparenttextures.com/patterns/cubes.png'); }
+  .fade-in { animation:fadeIn .2s ease-out; }
+  @keyframes fadeIn { from{opacity:0;transform:scale(.95);} to{opacity:1;transform:scale(1);} }
+  ::-webkit-scrollbar { width:8px; } ::-webkit-scrollbar-track { background:#f1f1f1; }
+  ::-webkit-scrollbar-thumb { background:#152a40; border-radius:4px; }
+  .no-scrollbar::-webkit-scrollbar { display:none; }
+
+  /* mode toggle */
+  .modebar button { transition:.2s; }
+  .modebar button.on { background:#fff; color:#152a40; box-shadow:0 4px 10px rgba(0,0,0,.18); }
+
+  /* gauge */
+  .gauge { position:relative; width:236px; height:236px; }
+  .gauge svg { transform:rotate(135deg); }
+  .gauge .track { fill:none; stroke:rgba(255,255,255,.16); stroke-width:18; stroke-linecap:round; }
+  .gauge .prog { fill:none; stroke:var(--theme); stroke-width:18; stroke-linecap:round;
+    transition:stroke-dashoffset 1s cubic-bezier(.16,1,.3,1), stroke .7s ease;
+    filter:drop-shadow(0 0 10px var(--glow)); }
+  .gauge .center { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; }
+
+  .bandtag { background:var(--theme); transition:background .7s ease; }
+  .acard { border-top:5px solid var(--theme); transition:border-color .7s ease, transform .5s ease, opacity .5s ease; opacity:0; transform:translateY(12px); }
+  .acard.in { opacity:1; transform:none; }
+  .acard li::before { content:""; display:inline-block; width:8px; height:8px; background:var(--theme); border-radius:2px; transform:rotate(45deg); margin-right:9px; transition:background .7s ease; }
+  .pin { background:var(--theme); transition:background .7s ease; }
+
+  /* atmosphere */
+  .sun { position:absolute; top:-70px; right:-50px; width:240px; height:240px; border-radius:50%;
+    background:radial-gradient(circle,rgba(249,192,49,.45),rgba(249,192,49,0) 62%); opacity:0; transition:opacity .7s; animation:pulse 6s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{transform:scale(1);} 50%{transform:scale(1.08);} }
+  .snow span { position:absolute; top:-12px; color:#e9f2fb; opacity:0; animation:fall linear infinite; }
+  @keyframes fall { 0%{transform:translateY(-10px);opacity:0;} 10%{opacity:.85;} 100%{transform:translateY(420px) translateX(22px);opacity:0;} }
+  @media (prefers-reduced-motion: reduce){ .sun{animation:none;} .snow span{display:none;} }
+</style>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans">
+
+<!-- HERO -->
+<header class="hero-bg text-white pt-8 pb-10 px-4 relative overflow-hidden">
+  <div class="sun" id="sun"></div>
+  <div class="snow absolute inset-0 pointer-events-none" id="snow"></div>
+
+  <div class="max-w-3xl mx-auto relative z-10 text-center">
+    <img src="https://files.constantcontact.com/3720c3fd901/10017eb4-f7d2-424d-92ed-c1b5424b9869.png" alt="Denton Fire Patch" class="h-20 mx-auto mb-3 drop-shadow-lg">
+    <h1 class="text-4xl md:text-5xl font-black uppercase tracking-wide leading-none">Temp Check<span class="text-yellow">.</span></h1>
+    <p class="text-yellow text-sm md:text-base font-medium max-w-xl mx-auto mt-2">Live Denton conditions and exactly what to do right now. Updates on its own, summer and winter.</p>
+
+    <!-- mode toggle -->
+    <div class="modebar flex gap-1.5 bg-white/10 border border-white/15 rounded-xl p-1.5 max-w-xs mx-auto mt-5" id="modebar">
+      <button data-mode="auto" class="on flex-1 rounded-lg py-2 text-xs font-bold uppercase tracking-wider text-gray-200">Auto</button>
+      <button data-mode="heat" class="flex-1 rounded-lg py-2 text-xs font-bold uppercase tracking-wider text-gray-200">Heat</button>
+      <button data-mode="cold" class="flex-1 rounded-lg py-2 text-xs font-bold uppercase tracking-wider text-gray-200">Cold</button>
+    </div>
+
+    <!-- gauge -->
+    <div class="flex flex-col items-center mt-5">
+      <div class="gauge">
+        <svg width="236" height="236" viewBox="0 0 248 248" aria-hidden="true">
+          <circle class="track" cx="124" cy="124" r="104" stroke-dasharray="490 653"></circle>
+          <circle class="prog" id="prog" cx="124" cy="124" r="104" stroke-dasharray="490 653" stroke-dashoffset="490"></circle>
+        </svg>
+        <div class="center">
+          <div class="text-[11px] tracking-[.18em] uppercase text-gray-300 font-bold">Feels like</div>
+          <div class="font-black leading-none text-white" style="font-size:70px"><span id="feels">--</span><span class="text-yellow align-top" style="font-size:32px">&deg;</span></div>
+          <div class="text-xs text-gray-300 mt-0.5" id="feelsfoot">getting conditions</div>
+        </div>
+      </div>
+      <div class="bandtag inline-block mt-3 px-5 py-1.5 rounded-full text-sm font-black uppercase tracking-wider text-white shadow-lg" id="bandtag">Loading</div>
+    </div>
+
+    <!-- chips -->
+    <div class="flex gap-2.5 justify-center flex-wrap mt-4">
+      <div class="bg-white/10 border border-white/15 rounded-xl px-4 py-2 min-w-[88px]"><div class="font-black text-xl" id="cTemp">--&deg;</div><div class="text-[10px] tracking-widest uppercase text-gray-300">Air Temp</div></div>
+      <div class="bg-white/10 border border-white/15 rounded-xl px-4 py-2 min-w-[88px]"><div class="font-black text-xl" id="cHum">--%</div><div class="text-[10px] tracking-widest uppercase text-gray-300">Humidity</div></div>
+      <div class="bg-white/10 border border-white/15 rounded-xl px-4 py-2 min-w-[88px]"><div class="font-black text-xl" id="cFeelKey">--&deg;</div><div class="text-[10px] tracking-widest uppercase text-gray-300" id="cFeelLbl">Heat Index</div></div>
+    </div>
+
+    <div class="text-xs text-gray-300 mt-3" id="meta">Showing live conditions for <b class="text-white">Denton, TX</b></div>
+
+    <!-- location controls -->
+    <div class="flex flex-wrap gap-2 justify-center items-center mt-3">
+      <button id="useLoc" class="bg-yellow text-navy font-bold text-sm px-4 py-2 rounded-lg">Use my location</button>
+      <div class="flex items-stretch gap-1.5">
+        <input id="zipInput" inputmode="numeric" maxlength="5" placeholder="ZIP code" class="w-28 rounded-lg px-3 py-2 text-sm text-gray-800">
+        <button id="zipGo" class="bg-white/15 border border-white/25 text-white font-bold text-sm px-3 rounded-lg">Go</button>
+      </div>
+      <button id="refresh" class="border border-white/25 text-white font-semibold text-sm px-3 py-2 rounded-lg">Refresh</button>
+    </div>
+    <div class="text-[11px] text-gray-400 mt-2">Your phone will ask permission for location. Or type any Denton-area ZIP.</div>
+    <div id="err" class="hidden bg-red-50 text-red-800 border border-red-200 rounded-lg px-3 py-2 text-xs mt-3 max-w-md mx-auto"></div>
+
+    <!-- manual explore -->
+    <button class="text-gray-300 text-xs underline mt-4" id="exToggle">Or explore actions at a different temperature</button>
+    <div class="hidden bg-white/10 border border-white/15 rounded-xl p-4 mt-2 max-w-md mx-auto" id="sliderBox">
+      <div class="flex justify-between items-baseline text-gray-200 text-xs mb-2"><span id="slLabel">Feels like</span><b class="text-white text-lg" id="slVal">95&deg;</b></div>
+      <input type="range" id="slider" min="80" max="120" value="95" class="w-full accent-yellow">
+      <button class="border border-white/25 text-white text-xs px-3 py-1.5 rounded-lg mt-2" id="backLive">Back to live conditions</button>
+    </div>
+  </div>
+</header>
+
+<!-- sticky nav -->
+<nav class="bg-white border-b border-gray-200 shadow-sm py-3 sticky top-0 z-40 overflow-x-auto no-scrollbar">
+  <div class="max-w-4xl mx-auto px-4 flex justify-start md:justify-center items-center gap-3 whitespace-nowrap">
+    <a href="#actions" class="border-2 border-navy text-navy hover:bg-navy hover:text-white font-bold py-2 px-3 rounded-lg transition text-xs md:text-sm">What to do</a>
+    <a href="#stations" class="border-2 border-navy text-navy hover:bg-navy hover:text-white font-bold py-2 px-3 rounded-lg transition text-xs md:text-sm">Nearby stations</a>
+    <button onclick="toggleQrModal()" class="bg-red text-white font-bold py-2 px-4 rounded-lg shadow-md hover:opacity-90 transition text-xs md:text-sm">Share this tool</button>
+  </div>
+</nav>
+
+<main class="max-w-4xl mx-auto px-4 sm:px-6 py-10 space-y-12">
+
+  <!-- mild -->
+  <section id="mild" class="hidden text-center bg-white border border-gray-100 rounded-2xl shadow-sm p-8">
+    <div class="text-2xl font-black uppercase text-green" id="mildBig">No temperature action needed</div>
+    <p class="text-gray-500 text-sm mt-2" id="mildText">Conditions are comfortable right now. Tap Heat or Cold above to see what to do when it turns.</p>
+  </section>
+
+  <!-- actions -->
+  <section id="actions" class="hidden scroll-mt-24">
+    <h2 class="text-2xl font-bold text-navy border-b-4 border-yellow inline-block mb-2 uppercase" id="actTitle">What to do right now</h2>
+    <p class="text-gray-500 text-sm mb-5" id="actSub"></p>
+    <div class="grid md:grid-cols-2 gap-5" id="cards"></div>
+    <div class="bg-red-50 border border-red-200 border-l-8 border-l-red rounded-lg p-5 mt-5">
+      <h3 class="font-black uppercase tracking-wide text-red text-sm mb-1" id="estripH">Call 911 for any of these</h3>
+      <p class="text-sm text-gray-800" id="estripP"></p>
+    </div>
+  </section>
+
+  <!-- stations -->
+  <section id="stations" class="hidden scroll-mt-24">
+    <h2 class="text-2xl font-bold text-navy border-b-4 border-yellow inline-block mb-3 uppercase" id="sitesTitle">Cooling stations near you</h2>
+    <div class="bg-yellow/10 border border-yellow/40 rounded-lg p-3 text-xs text-gray-700 mb-4" id="verifyNote"></div>
+    <div id="siteList" class="space-y-2.5"></div>
+    <a href="https://www.cityofdenton.com/470/WarmingCooling-Stations" target="_blank" rel="noopener" class="inline-block mt-4 text-navy font-bold text-sm hover:underline">See the full City of Denton list, hours, and current status &rarr;</a>
+  </section>
+
+  <!-- sources -->
+  <section class="bg-white border border-gray-100 rounded-xl shadow-sm p-5 text-xs text-gray-600 leading-relaxed">
+    <b class="text-navy">Where this comes from.</b> Live temperature, humidity, heat index, and wind chill are pulled from the National Weather Service (api.weather.gov). Action guidance follows the NWS heat index and wind chill scales, the CDC, and the OSHA and NIOSH water, rest, and shade standard for outdoor work. Station locations come from the City of Denton, which opens cooling and warming stations during extreme weather and posts current hours and status on its page. Distances are approximate. Always confirm a station is open before you go.
+  </section>
+
+</main>
+
+<!-- footer -->
+<footer class="bg-navy text-white pt-12 pb-24 text-center">
+  <div class="max-w-4xl mx-auto px-4">
+    <p class="text-yellow font-black uppercase tracking-[.18em] text-sm mb-4">Excellence Through Preparedness.</p>
+    <h3 class="text-lg font-black uppercase tracking-widest mb-3">Denton Fire Department</h3>
+    <p class="text-gray-400 text-sm mb-1">332 E. Hickory St, Denton, TX 76201</p>
+    <p class="text-gray-400 text-sm mb-6">Non-Emergency: <a href="tel:9403498840" class="hover:text-white underline">(940) 349-8840</a></p>
+    <div class="flex justify-center space-x-6 mb-6">
+      <a href="https://facebook.com/dentonfire" class="hover:scale-110 transition"><img src="https://img.icons8.com/ios-filled/50/ffffff/facebook-new.png" width="24" alt="Facebook"></a>
+      <a href="https://x.com/DentonFireDept" class="hover:scale-110 transition"><img src="https://img.icons8.com/ios-filled/50/ffffff/twitterx.png" width="24" alt="X"></a>
+      <a href="https://instagram.com/dentonfiredepartment" class="hover:scale-110 transition"><img src="https://img.icons8.com/ios-filled/50/ffffff/instagram-new.png" width="24" alt="Instagram"></a>
+    </div>
+    <a href="https://www.dentonfire.com" target="_blank" class="text-yellow font-bold uppercase text-xs tracking-widest hover:text-white underline">www.dentonfire.com</a>
+  </div>
+</footer>
+
+<!-- FABs -->
+<div class="fixed bottom-6 right-6 z-50 flex flex-col gap-3">
+  <button onclick="window.scrollTo({top:0,behavior:'smooth'})" class="bg-white text-navy p-3 rounded-full shadow-lg border border-gray-200 hover:bg-gray-100 transition" aria-label="Back to top">
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg>
+  </button>
+  <button onclick="toggleQrModal()" class="bg-navy text-white p-3 rounded-full shadow-2xl hover:bg-red transition transform hover:scale-110" aria-label="Share QR code">
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
+  </button>
+</div>
+
+<!-- QR modal -->
+<div id="qrModal" class="fixed inset-0 z-[60] hidden" role="dialog" aria-modal="true">
+  <div class="fixed inset-0 bg-navy/90 backdrop-blur-md" onclick="toggleQrModal()"></div>
+  <div class="fixed inset-0 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl p-8 max-w-sm w-full text-center fade-in">
+      <h3 class="font-bold text-navy text-xl mb-2">Share Temp Check</h3>
+      <p class="text-sm text-gray-500 mb-6">Scan to open the tool, or save it to your phone for the next heat wave or hard freeze.</p>
+      <div class="flex justify-center mb-6 p-4 bg-gray-50 rounded-xl"><img id="qrImage" src="" alt="QR Code" class="w-48 h-48"></div>
+      <button onclick="toggleQrModal()" class="w-full bg-navy text-white py-3 rounded-xl font-bold">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===================== TEMP CHECK - Denton Fire Department ===================== */
+var TOOL_URL = "https://dentonfire.github.io/Temp-Check/";
+var DENTON = { lat:33.2148, lon:-97.1331, name:"Denton, TX" };
+
+var ZIPS = {
+  "76201":{lat:33.2196,lon:-97.1430,name:"Denton 76201"},
+  "76205":{lat:33.2010,lon:-97.1280,name:"Denton 76205"},
+  "76207":{lat:33.2270,lon:-97.1700,name:"Denton 76207"},
+  "76208":{lat:33.2150,lon:-97.0700,name:"Denton 76208"},
+  "76209":{lat:33.2330,lon:-97.1180,name:"Denton 76209"},
+  "76210":{lat:33.1660,lon:-97.0860,name:"Denton 76210"},
+  "76226":{lat:33.0930,lon:-97.1230,name:"Argyle/Lantana 76226"},
+  "76227":{lat:33.2540,lon:-96.9960,name:"Aubrey/Crossroads 76227"},
+  "76249":{lat:33.3530,lon:-97.1760,name:"Krum 76249"},
+  "76258":{lat:33.3650,lon:-96.9520,name:"Pilot Point 76258"},
+  "76259":{lat:33.1130,lon:-97.2980,name:"Ponder 76259"}
+};
+
+var SITES = [
+  {nm:"Denton Civic Center", ad:"321 E. McKinney St.", lat:33.2147, lon:-97.1318, hrs:"Mon-Fri 8 a.m. to 7 p.m.", seat:true},
+  {nm:"Denton Senior Center", ad:"509 N. Bell Ave.", lat:33.2192, lon:-97.1290, hrs:"Mon-Thu 8 a.m. to 8 p.m., Fri to 5 p.m., Sat to noon", seat:true},
+  {nm:"Denia Rec Center", ad:"1001 Parvin St.", lat:33.2076, lon:-97.1452, hrs:"Mon-Thu 7 a.m. to 8 p.m., Fri to 7 p.m., Sat 9 a.m. to 2 p.m.", seat:true},
+  {nm:"MLK Jr. Rec Center", ad:"1300 Wilson St.", lat:33.2089, lon:-97.1226, hrs:"Mon-Thu 9 a.m. to 8 p.m., Fri to 7 p.m., Sat to 4 p.m.", seat:true},
+  {nm:"North Lakes Rec Center", ad:"2001 W. Windsor Dr.", lat:33.2398, lon:-97.1493, hrs:"Mon-Fri 5 a.m. to 10 p.m., Sat 7 a.m. to 4 p.m.", seat:true},
+  {nm:"Emily Fowler Central Library", ad:"502 Oakland St.", lat:33.2169, lon:-97.1361, hrs:"Mon/Wed/Fri/Sat 9 a.m. to 6 p.m., Tue/Thu to 9 p.m., Sun 1 to 5 p.m.", seat:true},
+  {nm:"North Branch Library", ad:"3020 N. Locust St.", lat:33.2470, lon:-97.1322, hrs:"Mon-Wed 9 a.m. to 9 p.m., Thu-Sat to 6 p.m., Sun 1 to 5 p.m.", seat:true},
+  {nm:"South Branch Library", ad:"3228 Teasley Ln.", lat:33.1860, lon:-97.1170, hrs:"Mon/Tue/Fri/Sat 9 a.m. to 6 p.m., Wed/Thu to 9 p.m., Sun 1 to 5 p.m.", seat:true},
+  {nm:"Central Fire Station", ad:"332 E. Hickory St.", lat:33.2160, lon:-97.1322, hrs:"Mon-Fri 8 a.m. to 5 p.m.", seat:true},
+  {nm:"Fire Station 2", ad:"110 Mockingbird Ln.", lat:33.2206, lon:-97.1442, hrs:"Daily 8 a.m. to 9 p.m.", seat:false},
+  {nm:"Fire Station 3", ad:"1401 Underwood St.", lat:33.2270, lon:-97.1402, hrs:"Daily 8 a.m. to 9 p.m.", seat:false},
+  {nm:"Fire Station 4", ad:"2116 E. Sherman Dr.", lat:33.2360, lon:-97.1170, hrs:"Daily 8 a.m. to 9 p.m.", seat:false},
+  {nm:"Fire Station 5", ad:"2230 W. Windsor Dr.", lat:33.2415, lon:-97.1530, hrs:"Daily 8 a.m. to 9 p.m.", seat:false},
+  {nm:"Fire Station 6", ad:"3232 Teasley Ln.", lat:33.1858, lon:-97.1175, hrs:"Daily 8 a.m. to 9 p.m.", seat:false},
+  {nm:"Fire Station 7", ad:"4201 Vintage Pkwy.", lat:33.1700, lon:-97.0960, hrs:"Daily 8 a.m. to 9 p.m.", seat:false},
+  {nm:"Fire Station 8", ad:"3131 S. Colorado Blvd.", lat:33.1900, lon:-97.1290, hrs:"Daily 8 a.m. to 9 p.m.", seat:false},
+  {nm:"Fire Station 9", ad:"4990 Airport Rd.", lat:33.1990, lon:-97.1990, hrs:"Daily 8 a.m. to 9 p.m.", seat:false}
+];
+
+function heatIndexF(T,R){
+  if (T<80) return T;
+  var HI=-42.379+2.04901523*T+10.14333127*R-0.22475541*T*R-0.00683783*T*T-0.05481717*R*R+0.00122874*T*T*R+0.00085282*T*R*R-0.00000199*T*T*R*R;
+  if (R<13&&T>=80&&T<=112){ HI-=((13-R)/4)*Math.sqrt((17-Math.abs(T-95))/17); }
+  else if (R>85&&T>=80&&T<=87){ HI+=((R-85)/10)*((87-T)/5); }
+  return HI;
+}
+function windChillF(T,V){ if(T>50||V<=3) return T; return 35.74+0.6215*T-35.75*Math.pow(V,0.16)+0.4275*T*Math.pow(V,0.16); }
+function cToF(c){ return c*9/5+32; }
+function msToMph(ms){ return ms*2.236936; }
+function haversine(a,b,c,d){ var R=3958.8,p=Math.PI/180; var dLat=(c-a)*p,dLon=(d-b)*p; var x=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(a*p)*Math.cos(c*p)*Math.sin(dLon/2)*Math.sin(dLon/2); return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x)); }
+
+var HEAT_BANDS = [
+  {max:90, name:"Caution", theme:"#f9c031", glow:"rgba(249,192,49,.45)"},
+  {max:103, name:"Extreme Caution", theme:"#f08a24", glow:"rgba(240,138,36,.45)"},
+  {max:125, name:"Danger", theme:"#bf2726", glow:"rgba(191,39,38,.45)"},
+  {max:999, name:"Extreme Danger", theme:"#7d1414", glow:"rgba(125,20,20,.5)"}
+];
+function pickHeatBand(f){ for (var i=0;i<HEAT_BANDS.length;i++){ if (f<HEAT_BANDS[i].max) return HEAT_BANDS[i]; } return HEAT_BANDS[3]; }
+function pickColdBand(f){
+  if (f<5)  return {name:"Extreme Cold", theme:"#1f4e85", glow:"rgba(31,78,133,.5)"};
+  if (f<20) return {name:"Hard Freeze", theme:"#2f6fb0", glow:"rgba(47,111,176,.45)"};
+  if (f<33) return {name:"Freeze", theme:"#4a90d9", glow:"rgba(74,144,217,.45)"};
+  return        {name:"Cold", theme:"#6aa6e0", glow:"rgba(106,166,224,.42)"};
+}
+
+function heatActions(f){
+  var cards;
+  if (f<90){
+    cards=[
+      ["&#9728;","You","Drink water on a schedule even if you are not thirsty. Wear light, loose clothing and a hat. Take breaks in the shade if you are active."],
+      ["&#128118;","Kids &amp; neighbors","Never leave anyone in a parked car. Make sure kids drink water between activities."],
+      ["&#128054;","Pets","Give shade and fresh water. Do the seven-second test: if you cannot hold your hand on the pavement for seven seconds, it is too hot for paws."],
+      ["&#129665;","Outdoor work","Hydrate before the shift. Take regular shade breaks. Build up your time in the heat over the first week."]];
+  } else if (f<103){
+    cards=[
+      ["&#9728;","You","Drink water every 15 to 20 minutes. Watch for heavy sweating, cramps, dizziness, or nausea, and get to air conditioning if you feel them."],
+      ["&#128118;","Kids &amp; neighbors","Check on older neighbors and anyone without AC today. Keep kids' outdoor play short with water breaks. Look before you lock."],
+      ["&#128054;","Pets","Walk only at the coolest hours and keep it short. Pavement can burn paws. Bring pets indoors through the afternoon."],
+      ["&#129665;","Outdoor work","Water, rest, shade: water every 15 minutes and rest breaks in the shade. Use a buddy system to watch each other for symptoms."]];
+  } else if (f<125){
+    cards=[
+      ["&#9728;","You","Limit time outside. Heat exhaustion is likely with exertion and heat stroke is possible. Stay in air conditioning when you can."],
+      ["&#128118;","Kids &amp; neighbors","Check on at-risk neighbors at least twice today. Move activities indoors. Confusion, hot skin, or fainting is a 911 call."],
+      ["&#128054;","Pets","Keep pets indoors. Walks only at dawn or after dark, on grass, kept very short. Watch for heavy panting, drooling, or stumbling."],
+      ["&#129665;","Outdoor work","Frequent mandatory rest in shade or AC, water every 15 minutes, and close watch on each other. Move heavy work to early morning."]];
+  } else {
+    cards=[
+      ["&#9728;","You","Avoid being outside. Heat stroke is highly likely. Stay in air conditioning. If you have none, go to a cooling station below."],
+      ["&#128118;","Kids &amp; neighbors","Check on at-risk neighbors in person now. Cancel outdoor activities. Confusion, hot dry skin, or fainting is a 911 emergency."],
+      ["&#128054;","Pets","Indoors only. No walks on pavement. Keep water available and watch closely for heat stroke signs."],
+      ["&#129665;","Outdoor work","Stop or sharply cut back outdoor work. Maximize rest, shade, and water. Treat any collapse or confusion as a 911 emergency."]];
+  }
+  return { title:"What to do in this heat",
+    sub:"Heat exhaustion means cool, clammy skin and a fast pulse. Heat stroke means hot skin, confusion, and fainting, and it is a 911 emergency.",
+    cards:cards, emH:"Call 911 for any of these",
+    emP:"Confusion, slurred speech, or fainting in the heat. Skin that is hot to the touch, especially with no sweating. A seizure or someone who cannot be woken. A child or pet locked in a hot car. A worker who collapses or stops sweating." };
+}
+
+function coldActions(f){
+  var cards;
+  if (f>=33){
+    cards=[
+      ["&#129398;","You","It is chilly. Dress in layers and cover up if you will be out a while. Keep an eye on kids and older adults who feel the cold faster."],
+      ["&#127968;","Home &amp; pipes","A freeze may be on the way. Find your water shutoff now, and plan to drip faucets and open cabinet doors if it drops below freezing tonight."],
+      ["&#128293;","Heat safely","If you are running heat, keep space heaters three feet from anything that burns, plug them straight into the wall, and turn them off when you sleep or leave."],
+      ["&#128054;","Pets &amp; neighbors","Bring outdoor pets in overnight. Check on neighbors who may not have reliable heat."]];
+  } else if (f>=20){
+    cards=[
+      ["&#129398;","You","Dress in layers and cover exposed skin. Limit time outside. Watch for shivering and numb fingers or toes."],
+      ["&#127968;","Home &amp; pipes","Drip faucets, open cabinet doors, and disconnect garden hoses. Know your water shutoff before a pipe bursts."],
+      ["&#128293;","Heat safely","Keep space heaters three feet from anything that burns, plug them into the wall, and turn them off when unattended. Test smoke and CO alarms."],
+      ["&#128054;","Pets &amp; neighbors","Bring pets indoors. Check on older neighbors and anyone without reliable heat."]];
+  } else if (f>=5){
+    cards=[
+      ["&#129398;","You","Frostbite can hit exposed skin in about 30 minutes. Cover everything, limit time outside, and watch for hypothermia: shivering, confusion, drowsiness."],
+      ["&#127968;","Home &amp; pipes","Keep faucets dripping and cabinets open. Protect outdoor and attic pipes. Never heat your home with a stove, oven, or grill."],
+      ["&#128293;","Heat safely","Space heaters need three feet of clear space, plugged into the wall, off when unattended. Carbon monoxide is the hidden risk, so confirm CO alarms work."],
+      ["&#128054;","Pets &amp; neighbors","Pets indoors. Check on vulnerable neighbors in person. Point anyone without heat to a warming station below."]];
+  } else {
+    cards=[
+      ["&#129398;","You","Frostbite can occur in about 10 minutes on exposed skin. Avoid going out. Hypothermia is a 911 emergency."],
+      ["&#127968;","Home &amp; pipes","Keep faucets dripping and cabinets open. If pipes freeze, shut off the water and call for help. No open-flame or fuel heaters indoors."],
+      ["&#128293;","Heat safely","Run only rated heaters with clearance. Generators stay outside and far from windows. Confirm CO alarms are working tonight."],
+      ["&#128054;","Pets &amp; neighbors","Pets indoors, period. Check on at-risk neighbors now and help them reach a warming station."]];
+  }
+  return { title:"What to do in this cold",
+    sub:"Hypothermia shows as shivering, confusion, and drowsiness. Frostbite shows as numb, white, or waxy skin. Both need fast warming and, if severe, 911.",
+    cards:cards, emH:"Call 911 for any of these",
+    emP:"Confusion, slurred speech, or extreme drowsiness in the cold. Numb skin that turns white or waxy. A person who cannot stop shivering or who stops shivering and is disoriented. Any suspected carbon monoxide exposure: headache, dizziness, and nausea that improves when you leave the building." };
+}
+
+var state = { mode:"auto", live:null, manual:null, coords:DENTON, locName:"Denton, TX" };
+var CIRC = 490;
+
+function setGauge(value, mode){
+  var lo,hi; if (mode==="cold"){ lo=45; hi=-10; } else { lo=70; hi=130; }
+  var pct=(value-lo)/(hi-lo); pct=Math.max(0,Math.min(1,pct));
+  document.getElementById("prog").setAttribute("stroke-dashoffset", String(CIRC*(1-pct)));
+}
+function animateNum(el,to){
+  to=Math.round(to); var from=parseInt(el.textContent,10); if(isNaN(from)) from=to>0?to-8:to+8;
+  var start=null,dur=700;
+  function step(ts){ if(!start)start=ts; var p=Math.min((ts-start)/dur,1);
+    el.textContent=String(Math.round(from+(to-from)*(p<.5?2*p*p:1-Math.pow(-2*p+2,2)/2)));
+    if(p<1) requestAnimationFrame(step); }
+  requestAnimationFrame(step);
+}
+function applyTheme(band, mode){
+  document.body.style.setProperty("--theme", band.theme);
+  document.body.style.setProperty("--glow", band.glow);
+  document.getElementById("sun").style.opacity = (mode==="heat") ? "1" : "0";
+  var snow=document.getElementById("snow");
+  if (mode==="cold"){ snow.style.display="block"; buildSnow(); } else { snow.style.display="none"; }
+}
+function buildSnow(){
+  var s=document.getElementById("snow"); if (s.childElementCount) return;
+  var html=""; for (var i=0;i<22;i++){ var left=Math.random()*100, dur=6+Math.random()*7, delay=-Math.random()*10, size=8+Math.random()*8;
+    html+='<span style="left:'+left+'%;font-size:'+size+'px;animation-duration:'+dur+'s;animation-delay:'+delay+'s;">&#10052;</span>'; }
+  s.innerHTML=html;
+}
+function decideMode(feels,temp){
+  if (state.mode!=="auto") return state.mode;
+  if (feels>=80) return "heat";
+  if (temp<40 || feels<40) return "cold";
+  return "mild";
+}
+function render(){
+  var src = state.manual!=null ? state.manual : state.live; if (!src) return;
+  var feels=src.feels, temp=src.temp, hum=src.hum;
+  var mode = (state.manual!=null && state.mode!=="auto") ? state.mode : decideMode(feels,temp);
+
+  document.getElementById("cTemp").innerHTML = (temp!=null?Math.round(temp):"--")+"&deg;";
+  document.getElementById("cHum").textContent = (hum!=null?Math.round(hum):"--")+"%";
+  var isCold = mode==="cold";
+  document.getElementById("cFeelLbl").textContent = isCold ? "Wind Chill" : "Heat Index";
+  document.getElementById("cFeelKey").innerHTML = Math.round(feels)+"&deg;";
+  animateNum(document.getElementById("feels"), feels);
+
+  var mildEl=document.getElementById("mild"), actBlock=document.getElementById("actions"), sitesBlock=document.getElementById("stations");
+
+  if (mode==="mild"){
+    applyTheme({theme:"#1f9d57",glow:"rgba(31,157,87,.4)"}, "mild");
+    document.getElementById("bandtag").textContent="Comfortable";
+    setGauge(feels,"heat");
+    document.getElementById("feelsfoot").textContent="near "+state.locName;
+    mildEl.classList.remove("hidden"); actBlock.classList.add("hidden"); sitesBlock.classList.add("hidden");
+    return;
+  }
+  mildEl.classList.add("hidden");
+
+  var band = isCold ? pickColdBand(feels) : pickHeatBand(feels);
+  applyTheme(band, mode);
+  document.getElementById("bandtag").textContent = (isCold?"":"Heat ")+band.name;
+  document.getElementById("feelsfoot").textContent="near "+state.locName;
+  setGauge(feels,mode);
+
+  var data = isCold ? coldActions(feels) : heatActions(feels);
+  document.getElementById("actTitle").textContent=data.title;
+  document.getElementById("actSub").textContent=data.sub;
+  document.getElementById("estripH").textContent=data.emH;
+  document.getElementById("estripP").textContent=data.emP;
+
+  var c=document.getElementById("cards"); c.innerHTML="";
+  data.cards.forEach(function(card,i){
+    var div=document.createElement("div");
+    div.className="acard bg-white border border-gray-100 rounded-xl shadow-sm p-5";
+    div.innerHTML='<div style="font-size:22px;line-height:1">'+card[0]+'</div>'+
+      '<h3 class="font-black uppercase text-navy text-sm mt-2 mb-2">'+card[1]+'</h3>'+
+      '<ul class="text-sm text-gray-700"><li class="flex items-start"><span>'+card[2]+'</span></li></ul>';
+    c.appendChild(div);
+    setTimeout(function(){ div.classList.add("in"); }, 80*i+60);
+  });
+  actBlock.classList.remove("hidden");
+
+  document.getElementById("sitesTitle").textContent = isCold ? "Warming stations near you" : "Cooling stations near you";
+  document.getElementById("verifyNote").innerHTML = "<b class='text-navy'>Confirm before you go.</b> These open only during extreme weather, and the City announces openings about a day ahead. Tap a station for directions, and check the City page for current hours and status. Stations marked water only have restrooms and water but no seating.";
+  renderSites();
+  sitesBlock.classList.remove("hidden");
+}
+function renderSites(){
+  var o=state.coords||DENTON;
+  var list=SITES.map(function(s){ return Object.assign({},s,{d:haversine(o.lat,o.lon,s.lat,s.lon)}); }).sort(function(a,b){return a.d-b.d;}).slice(0,5);
+  var wrap=document.getElementById("siteList"); wrap.innerHTML="";
+  list.forEach(function(s){
+    var dir="https://www.google.com/maps/dir/?api=1&destination="+encodeURIComponent(s.ad+", Denton, TX");
+    var el=document.createElement("div");
+    el.className="flex gap-3 items-start bg-white border border-gray-100 rounded-xl shadow-sm p-3";
+    el.innerHTML='<div class="pin flex-none w-10 h-10 rounded-lg text-white flex items-center justify-center font-black text-xs text-center leading-tight">'+s.d.toFixed(1)+'<br>mi</div>'+
+      '<div class="flex-1 min-w-0"><div class="font-bold text-navy text-sm">'+s.nm+'</div>'+
+      '<div class="text-xs text-gray-500">'+s.ad+'</div>'+
+      '<div class="text-xs text-gray-500 mt-0.5">'+s.hrs+'</div>'+
+      (s.seat?'':'<span class="inline-block text-[10px] font-bold uppercase tracking-wide text-yellow-800 bg-yellow/20 border border-yellow/40 rounded-full px-2 py-0.5 mt-1">Water only, no seating</span>')+'</div>'+
+      '<a href="'+dir+'" target="_blank" rel="noopener" class="flex-none self-center bg-navy text-white text-xs font-bold px-3 py-2 rounded-lg">Directions</a>';
+    wrap.appendChild(el);
+  });
+}
+
+function showErr(m){ var e=document.getElementById("err"); e.textContent=m; e.classList.remove("hidden"); }
+function clearErr(){ document.getElementById("err").classList.add("hidden"); }
+
+function fetchConditions(lat,lon,label){
+  clearErr(); document.getElementById("meta").innerHTML="Getting live conditions...";
+  var headers={ "Accept":"application/geo+json" };
+  fetch("https://api.weather.gov/points/"+lat.toFixed(4)+","+lon.toFixed(4),{headers:headers})
+    .then(function(r){ if(!r.ok) throw 0; return r.json(); })
+    .then(function(p){
+      var loc=p.properties.relativeLocation;
+      if (loc&&loc.properties){ state.locName=loc.properties.city+", "+loc.properties.state; } else if (label){ state.locName=label; }
+      return fetch(p.properties.observationStations,{headers:headers});
+    })
+    .then(function(r){ if(!r.ok) throw 0; return r.json(); })
+    .then(function(sj){ var id=sj.features&&sj.features[0]&&sj.features[0].properties.stationIdentifier; if(!id) throw 0;
+      return fetch("https://api.weather.gov/stations/"+id+"/observations/latest",{headers:headers}); })
+    .then(function(r){ if(!r.ok) throw 0; return r.json(); })
+    .then(function(o){
+      var pr=o.properties; var tC=pr.temperature&&pr.temperature.value;
+      if (tC==null) throw 0;
+      var temp=cToF(tC), hum=(pr.relativeHumidity&&pr.relativeHumidity.value)!=null?pr.relativeHumidity.value:50,
+          wind=(pr.windSpeed&&pr.windSpeed.value)!=null?msToMph(pr.windSpeed.value):0, feels;
+      if (temp>=80) feels=heatIndexF(temp,hum); else if (temp<=50&&wind>3) feels=windChillF(temp,wind); else feels=temp;
+      state.live={temp:temp,hum:hum,wind:wind,feels:feels,at:new Date()};
+      state.manual=null; document.getElementById("sliderBox").classList.add("hidden");
+      var t=state.live.at.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"});
+      document.getElementById("meta").innerHTML="Live for <b class='text-white'>"+state.locName+"</b>, updated "+t;
+      render();
+    })
+    .catch(function(){
+      document.getElementById("meta").innerHTML="Could not reach the live feed for <b class='text-white'>"+(label||"Denton, TX")+"</b>";
+      showErr("Live conditions are unavailable right now. Use the slider below to see actions for any temperature.");
+      document.getElementById("sliderBox").classList.remove("hidden");
+      if (state.mode==="auto") setMode("heat"); else onSlider();
+    });
+}
+
+document.getElementById("useLoc").addEventListener("click",function(){
+  if (!navigator.geolocation){ showErr("This device does not support location. Enter a ZIP instead."); return; }
+  document.getElementById("meta").innerHTML="Finding your location...";
+  navigator.geolocation.getCurrentPosition(
+    function(pos){ state.coords={lat:pos.coords.latitude,lon:pos.coords.longitude}; fetchConditions(state.coords.lat,state.coords.lon,"your location"); },
+    function(){ showErr("Location was blocked. Enter a ZIP code instead."); },
+    {timeout:8000,maximumAge:300000});
+});
+document.getElementById("zipGo").addEventListener("click",goZip);
+document.getElementById("zipInput").addEventListener("keydown",function(e){ if(e.key==="Enter") goZip(); });
+function goZip(){
+  var z=document.getElementById("zipInput").value.trim();
+  if (ZIPS[z]){ state.coords={lat:ZIPS[z].lat,lon:ZIPS[z].lon}; fetchConditions(ZIPS[z].lat,ZIPS[z].lon,ZIPS[z].name); }
+  else { showErr("That ZIP is outside the Denton-area list. Try Use my location, or a ZIP from 76201 to 76210."); }
+}
+document.getElementById("refresh").addEventListener("click",function(){ var c=state.coords||DENTON; fetchConditions(c.lat,c.lon,state.locName); });
+
+function setMode(m){
+  state.mode=m;
+  var btns=document.querySelectorAll("#modebar button");
+  for (var i=0;i<btns.length;i++){ btns[i].classList.toggle("on", btns[i].getAttribute("data-mode")===m); }
+  if (m==="cold") configSlider(-10,40, state.manual?state.manual.feels:28);
+  else if (m==="heat") configSlider(80,120, state.manual?state.manual.feels:95);
+  render();
+}
+document.querySelectorAll("#modebar button").forEach(function(b){ b.addEventListener("click",function(){ setMode(b.getAttribute("data-mode")); }); });
+
+document.getElementById("exToggle").addEventListener("click",function(){
+  var box=document.getElementById("sliderBox"); var showing=box.classList.toggle("hidden")===false;
+  if (showing){ if (state.mode==="auto") setMode(state.live&&state.live.temp<40?"cold":"heat"); else onSlider(); }
+});
+function configSlider(min,max,val){
+  var s=document.getElementById("slider"); s.min=min; s.max=max; s.value=Math.max(min,Math.min(max,Math.round(val)));
+  document.getElementById("slLabel").textContent=(state.mode==="cold"?"Wind chill":"Feels like");
+  document.getElementById("slVal").innerHTML=s.value+"&deg;";
+}
+function onSlider(){
+  var v=parseInt(document.getElementById("slider").value,10);
+  document.getElementById("slVal").innerHTML=v+"&deg;";
+  state.manual={feels:v,temp:v,hum:(state.live?state.live.hum:50)};
+  document.getElementById("meta").innerHTML="Showing actions for a manual <b class='text-white'>"+v+"&deg;</b>";
+  render();
+}
+document.getElementById("slider").addEventListener("input",onSlider);
+document.getElementById("backLive").addEventListener("click",function(){
+  state.manual=null; document.getElementById("sliderBox").classList.add("hidden");
+  setMode("auto"); var c=state.coords||DENTON; fetchConditions(c.lat,c.lon,state.locName);
+});
+
+function toggleQrModal(){
+  var m=document.getElementById("qrModal"); m.classList.toggle("hidden");
+  if (!m.classList.contains("hidden")){
+    document.getElementById("qrImage").src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data="+encodeURIComponent(TOOL_URL);
+  }
+}
+
+/* boot */
+fetchConditions(DENTON.lat,DENTON.lon,"Denton, TX");
+setInterval(function(){ if (state.manual==null){ var c=state.coords||DENTON; fetchConditions(c.lat,c.lon,state.locName); } }, 600000);
+</script>
+</body>
+</html>
