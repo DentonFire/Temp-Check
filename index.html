@@ -82,7 +82,6 @@
     <a href="#now" class="border-2 border-navy text-navy hover:bg-navy hover:text-white font-bold py-2 px-3 rounded-lg transition text-xs md:text-sm">Conditions</a>
     <a href="#actions" class="border-2 border-navy text-navy hover:bg-navy hover:text-white font-bold py-2 px-3 rounded-lg transition text-xs md:text-sm">What to do</a>
     <a href="#stations" class="border-2 border-navy text-navy hover:bg-navy hover:text-white font-bold py-2 px-3 rounded-lg transition text-xs md:text-sm">Nearby stations</a>
-    <button onclick="toggleQrModal()" class="bg-red text-white font-bold py-2 px-4 rounded-lg shadow-md hover:opacity-90 transition text-xs md:text-sm">Share this tool</button>
   </div>
 </nav>
 
@@ -117,7 +116,7 @@
               <div class="text-xs text-gray-300 mt-0.5" id="feelsfoot">getting conditions</div>
             </div>
           </div>
-          <div class="bandtag inline-block mt-3 px-5 py-1.5 rounded-full text-sm font-black uppercase tracking-wider text-white shadow-lg" id="bandtag">Loading</div>
+          <div class="bandtag inline-block mt-3 px-5 py-1.5 rounded-full text-sm font-black uppercase tracking-wider text-white shadow-lg" id="bandtag" role="status" aria-live="polite">Loading</div>
         </div>
 
         <!-- chips -->
@@ -179,7 +178,7 @@
 
   <!-- sources -->
   <section class="bg-white border border-gray-100 rounded-xl shadow-sm p-5 text-xs text-gray-600 leading-relaxed">
-    <b class="text-navy">Where this comes from.</b> Live temperature, humidity, heat index, and wind chill are pulled from the National Weather Service (api.weather.gov). Action guidance follows the NWS heat index and wind chill scales, the CDC, and the OSHA and NIOSH water, rest, and shade standard for outdoor work. Station locations come from the City of Denton, which opens cooling and warming stations during extreme weather and posts current hours and status on its page. Distances are approximate. Always confirm a station is open before you go.
+    <b class="text-navy">Where this comes from.</b> Live temperature, humidity, heat index, and wind chill come from the National Weather Service forecast for your location (api.weather.gov). Action guidance follows the NWS heat index and wind chill scales, the CDC, and the OSHA and NIOSH water, rest, and shade standard for outdoor work. Station locations come from the City of Denton, which opens cooling and warming stations during extreme weather and posts current hours and status on its page. Distances are approximate. Always confirm a station is open before you go.
   </section>
 
 </main>
@@ -486,25 +485,28 @@ function showErr(m){ var e=document.getElementById("err"); e.textContent=m; e.cl
 function clearErr(){ document.getElementById("err").classList.add("hidden"); }
 
 function fetchConditions(lat,lon,label){
-  clearErr(); document.getElementById("meta").innerHTML="Getting live conditions...";
+  clearErr(); document.getElementById("meta").innerHTML="Getting current conditions...";
   var headers={ "Accept":"application/geo+json" };
   fetch("https://api.weather.gov/points/"+lat.toFixed(4)+","+lon.toFixed(4),{headers:headers})
     .then(function(r){ if(!r.ok) throw 0; return r.json(); })
     .then(function(p){
       var loc=p.properties.relativeLocation;
       if (loc&&loc.properties){ state.locName=loc.properties.city+", "+loc.properties.state; } else if (label){ state.locName=label; }
-      return fetch(p.properties.observationStations,{headers:headers});
+      return fetch(p.properties.forecastHourly,{headers:headers});
     })
     .then(function(r){ if(!r.ok) throw 0; return r.json(); })
-    .then(function(sj){ var id=sj.features&&sj.features[0]&&sj.features[0].properties.stationIdentifier; if(!id) throw 0;
-      return fetch("https://api.weather.gov/stations/"+id+"/observations/latest",{headers:headers}); })
-    .then(function(r){ if(!r.ok) throw 0; return r.json(); })
-    .then(function(o){
-      var pr=o.properties; var tC=pr.temperature&&pr.temperature.value;
-      if (tC==null) throw 0;
-      var temp=cToF(tC), hum=(pr.relativeHumidity&&pr.relativeHumidity.value)!=null?pr.relativeHumidity.value:50,
-          wind=(pr.windSpeed&&pr.windSpeed.value)!=null?msToMph(pr.windSpeed.value):0, feels;
-      if (temp>=80) feels=heatIndexF(temp,hum); else if (temp<=50&&wind>3) feels=windChillF(temp,wind); else feels=temp;
+    .then(function(fc){
+      var pers=fc.properties&&fc.properties.periods; if(!pers||!pers.length) throw 0;
+      var now=Date.now(), cur=pers[0];
+      for (var i=0;i<pers.length;i++){
+        var s=new Date(pers[i].startTime).getTime(), e=new Date(pers[i].endTime).getTime();
+        if (now>=s && now<e){ cur=pers[i]; break; }
+      }
+      var temp=cur.temperature;  // already Fahrenheit
+      var hum=(cur.relativeHumidity && cur.relativeHumidity.value!=null) ? cur.relativeHumidity.value : 50;
+      var wind=parseFloat(String(cur.windSpeed||"0").replace(/[^0-9.]/g,"")) || 0;
+      var feels;
+      if (temp>=80) feels=heatIndexF(temp,hum); else if (temp<=50 && wind>3) feels=windChillF(temp,wind); else feels=temp;
       state.live={temp:temp,hum:hum,wind:wind,feels:feels,at:new Date()};
       state.manual=null; document.getElementById("sliderBox").classList.add("hidden");
       var t=state.live.at.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"});
